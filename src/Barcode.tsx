@@ -11,12 +11,9 @@ export function Barcode({ callback, close }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const [error, setError] = useState<ErrorEntity | null>(null);
-  const [multipleBarcodes, setMultipleBarcodes] = useState<
-    DetectedBarcode[] | null
-  >(null);
 
   useEffect(() => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || barcodeRef.current) return;
 
     barcodeRef.current = new BarcodeReader(videoRef.current);
     handler();
@@ -37,15 +34,7 @@ export function Barcode({ callback, close }: Props) {
       return setError(res);
     }
 
-    if (res.barcodes.length > 1) {
-      setMultipleBarcodes(res.barcodes);
-    }
-
-    handleSelect(res.barcodes[0]);
-  };
-
-  const handleSelect = (barcode: DetectedBarcode) => {
-    callback(barcode.rawValue);
+    callback(res.barcodes[0].rawValue);
     close();
   };
 
@@ -63,19 +52,6 @@ export function Barcode({ callback, close }: Props) {
             <button type="button" onClick={close}>
               No
             </button>
-          </div>
-        )}
-        {!!multipleBarcodes?.length && (
-          <div className="absolute top-0 left-0 w-full h-full">
-            <ul className="grid gap-4">
-              {multipleBarcodes.map((elem, idx) => (
-                <li key={idx}>
-                  <button type="button" onClick={() => handleSelect(elem)}>
-                    {elem.rawValue}
-                  </button>
-                </li>
-              ))}
-            </ul>
           </div>
         )}
       </div>
