@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BarcodeReader } from "./libs/BarcodeReader";
+import { BarcodeReader, EnumBarcodeError } from "./libs/BarcodeReader";
 
 type Props = {
   callback: (barcode: string) => void;
@@ -30,7 +30,11 @@ export function Barcode({ callback, close }: Props) {
 
     const res = await barcodeRef.current.start();
 
+    if (barcodeRef.current.destroyed) return;
+
     if (barcodeRef.current.getIsError(res)) {
+      if (res.type === EnumBarcodeError.ABORT) return;
+
       return setError(res);
     }
 

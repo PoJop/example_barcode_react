@@ -11,6 +11,7 @@ export class BarcodeReader {
   private abort: AbortController | null = null;
   videoElem: HTMLVideoElement;
   interval: number;
+  destroyed = true;
 
   constructor(videoElem: HTMLVideoElement, interval: number = 800) {
     if (!(videoElem instanceof HTMLVideoElement))
@@ -21,32 +22,45 @@ export class BarcodeReader {
   }
 
   private async getStream() {
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: {
-            ideal: "environment",
+    if (!this.destroyed || !this.stream?.active) {
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: {
+              ideal: "environment",
+            },
           },
-        },
-        audio: false,
-      });
-    } catch (error) {
-      console.error(error);
+          audio: false,
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    if (this.destroyed) {
+      this.stopStream();
     }
 
     return this.stream;
   }
 
+  private stopStream() {
+    this.stream?.getTracks().forEach((track) => track.stop());
+    this.stream = null;
+  }
+
   destroy() {
     this.abort?.abort();
     this.abort = null;
-    this.stream?.getTracks().forEach((track) => track.stop());
-    this.stream = null;
+
+    this.stopStream();
 
     if (typeof this.intervalRef === "number") {
       clearInterval(this.intervalRef);
       this.intervalRef = null;
     }
+
+    this.destroyed = true;
   }
 
   private getError(type: BarcodeError, message: string): ErrorEntity {
@@ -69,10 +83,12 @@ export class BarcodeReader {
   async start(): Promise<ErrorEntity | { barcodes: DetectedBarcode[] }> {
     try {
       this.destroy();
+      this.destroyed = false;
+
       this.abort = new AbortController();
 
       const barcodeDetector = new (
-        await import("barcode-detector/pure")
+        await import("barcode-detector")
       ).BarcodeDetector();
 
       const barcodes = await new Promise<DetectedBarcode[]>(
@@ -122,14 +138,14 @@ export class BarcodeReader {
         }
       );
 
-      this.destroy();
-
       return { barcodes };
     } catch (error) {
-      this.destroy();
       return this.getIsError(error)
         ? error
-        : { message: "Something went wrong", type: EnumBarcodeError.UNKNOWN };
+        : {
+            message: "Something went wrong",
+            type: EnumBarcodeError.UNKNOWN,
+          };
     }
   }
 }
